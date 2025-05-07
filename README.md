@@ -1,4 +1,4 @@
-# Blockchain Project – CSE 242
+# Blockchain Project
 
 This project implements a simplified blockchain system in C++ with Merkle tree verification and lightweight client proofs, structured across three parts: HW3, HW4, and HW5.
 
