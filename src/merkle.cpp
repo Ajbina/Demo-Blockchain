@@ -15,32 +15,60 @@ Node::~Node() {
 }
 
 // Build Merkle Tree implementation
-Node* buildMerkleTree(const std::vector<Account>& accounts, int start, int end) {
+// Node* buildMerkleTree(const std::vector<Account>& accounts, int start, int end) {
+//     if (start > end) return nullptr;
+    
+//     // Base case: single account
+//     if (start == end) {
+//         return new Node(accounts[start].hash);
+//     }
+    
+//     // Recursive case: build left and right subtrees
+//     int mid = (start + end) / 2;
+//     Node* left = buildMerkleTree(accounts, start, mid);
+//     Node* right = buildMerkleTree(accounts, mid + 1, end);
+    
+//     // Create new node with combined hash
+//     Node* node = new Node("");
+//     node->left = left;
+//     node->right = right;
+    
+//     // Compute hash based on children
+//     if (right) {
+//         node->hash = computeSHA256(left->hash + right->hash);
+//     } else {
+//         // If odd number of nodes, propagate the left hash up
+//         node->hash = left->hash;
+//     }
+    
+//     return node;
+// }
+Node* buildMerkleTree(const std::vector<Account>& accounts, int start, int end, bool isLeft = false) {
     if (start > end) return nullptr;
-    
-    // Base case: single account
+
+    // Base case: single leaf node
     if (start == end) {
-        return new Node(accounts[start].hash);
+        Node* leaf = new Node(accounts[start].hash);
+        leaf->isLeaf = true;
+        leaf->isLeftChild = isLeft;
+        return leaf;
     }
-    
-    // Recursive case: build left and right subtrees
+
     int mid = (start + end) / 2;
-    Node* left = buildMerkleTree(accounts, start, mid);
-    Node* right = buildMerkleTree(accounts, mid + 1, end);
-    
-    // Create new node with combined hash
+    Node* left = buildMerkleTree(accounts, start, mid, true);
+    Node* right = buildMerkleTree(accounts, mid + 1, end, false);
+
     Node* node = new Node("");
     node->left = left;
     node->right = right;
-    
-    // Compute hash based on children
+    node->isLeftChild = isLeft;
+
     if (right) {
         node->hash = computeSHA256(left->hash + right->hash);
     } else {
-        // If odd number of nodes, propagate the left hash up
         node->hash = left->hash;
     }
-    
+
     return node;
 }
 

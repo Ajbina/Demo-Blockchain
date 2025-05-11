@@ -12,13 +12,16 @@ struct Account {
 
 struct Node {
     std::string hash;
-    Node* left;
-    Node* right;
-    
+    Node* left = nullptr;
+    Node* right = nullptr;
+
+    bool isLeaf = false;        
+    bool isLeftChild = false;   
+
     Node(const std::string& h);
     ~Node();
 };
 
-Node* buildMerkleTree(const std::vector<Account>& accounts, int start, int end);
+Node* buildMerkleTree(const std::vector<Account>& accounts, int start, int end, bool isLeft);
 
 #endif

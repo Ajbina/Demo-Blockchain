@@ -29,7 +29,7 @@ struct BalanceProof {
     long long balance = 0;
     std::string merkleRoot;
     std::vector<ProofStep> merkleProof;
-    std::vector<std::string> chainProof;
+    //std::vector<std::string> chainProof;
     std::string leafHash;
 };
 
@@ -64,7 +64,7 @@ Block deserializeBlock(std::ifstream& file) {
 }
 
 bool validateBlock(const Block& b, bool isGenesis = false) {
-    Node* root = buildMerkleTree(b.accounts, 0, b.accounts.size() - 1);
+    Node* root = buildMerkleTree(b.accounts, 0, b.accounts.size() - 1, false);
     bool valid = (root->hash == b.header.merkleRoot);
     delete root;
 
@@ -82,30 +82,21 @@ bool validateBlockchain(const std::vector<Block>& chain) {
     return true;
 }
 
-void buildMerkleProof(const std::vector<std::string>& leafHashes, int index, std::vector<ProofStep>& proof) {
-    std::vector<std::string> current = leafHashes;
-    while (current.size() > 1) {
-        std::vector<std::string> next;
-        int newIndex = -1;
+bool findLeafAndBuildProof(Node* node, const std::string& targetHash, std::vector<ProofStep>& proof) {
+    if (!node) return false;
+    if (node->isLeaf && node->hash == targetHash) return true;
 
-        for (int i = 0; i < static_cast<int>(current.size()); i += 2) {
-            std::string left = current[i];
-            std::string right = (i + 1 < static_cast<int>(current.size())) ? current[i + 1] : left;
-            std::string combined = computeSHA256(left + right);
-            next.push_back(combined);
-
-            if (i == index || i + 1 == index) {
-                ProofStep step;
-                step.isLeft = (i == index);  // was the tracked hash the left one?
-                step.siblingHash = (i == index) ? right : left;
-                proof.push_back(step);
-                newIndex = static_cast<int>(next.size()) - 1;
-            }
+    if (node->left && findLeafAndBuildProof(node->left, targetHash, proof)) {
+        if (node->right) {
+            proof.push_back({ node->right->hash, true }); // sibling on right, current is left
         }
-
-        index = newIndex;
-        current = next;
+        return true;
     }
+    if (node->right && findLeafAndBuildProof(node->right, targetHash, proof)) {
+        proof.push_back({ node->left->hash, false }); // sibling on left, current is right
+        return true;
+    }
+    return false;
 }
 
 bool verifyMerkleProof(const std::vector<ProofStep>& proof, const std::string& expectedRoot, const std::string& leafHash) {
@@ -137,14 +128,17 @@ BalanceProof getBalance(const std::string& addr, const std::vector<Block>& chain
             proof.found = true;
             proof.balance = accIt->balance;
             proof.leafHash = computeSHA256(addr + std::to_string(proof.balance));
-            buildMerkleProof(leafHashes, idx, proof.merkleProof);
-            proof.merkleRoot = blk.header.merkleRoot;
-
-            proof.chainProof.push_back(blk.hash);
-            for (auto fwd = std::next(it).base(); fwd != chain.end(); ++fwd) {
-                proof.chainProof.push_back(fwd->hash);
-            }
-
+        
+            Node* root = buildMerkleTree(blk.accounts, 0, blk.accounts.size() - 1, false);
+            findLeafAndBuildProof(root, proof.leafHash, proof.merkleProof);
+            proof.merkleRoot = root->hash;
+            delete root;
+        
+            //proof.chainProof.push_back(blk.hash);
+            //for (auto fwd = std::next(it).base(); fwd != chain.end(); ++fwd) {
+            //    proof.chainProof.push_back(fwd->hash);
+            //}
+        
             return proof;
         }
     }
@@ -186,16 +180,13 @@ int main() {
             std::cout << "\nBalance: " << proof.balance << "\n";
             std::cout << "Merkle Proof Path:\n";
             for (const auto& step : proof.merkleProof) {
-                std::cout << "  " << step.siblingHash << " (" << (step.isLeft ? "left" : "right") << ")" << std::endl;
-
+                std::cout << "  " << step.siblingHash << " (" << (step.isLeft ? "left" : "right") << ")";
             }
 
-            std::cout << "\nChain Proof (block hashes):\n";
-            for (const auto& h : proof.chainProof) std::cout << "  " << h << "\n";
+            //std::cout << "\nChain Proof (block hashes):\n";
+            //for (const auto& h : proof.chainProof) std::cout << "  " << h << "\n";
 
-            std::cout << "\nMerkle proof is "
-                      << (verifyMerkleProof(proof.merkleProof, proof.merkleRoot, proof.leafHash) ? "VALID ✅" : "INVALID ❌")
-                      << "\n";
+            //std::cout << "\nMerkle proof is " << (verifyMerkleProof(proof.merkleProof, proof.merkleRoot, proof.leafHash) ? "VALID" : "INVALID") << "\n";
         } else {
             std::cout << "Address not found in blockchain.\n";
         }
